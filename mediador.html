@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuizLive — Mediador</title>
+<style>
+  :root{--red:#C1272C;--dark:#1B2430;--white:#FFFFFF;--opt1:#1A5276;--opt2:#884EA0;--opt3:#1E8449;--opt4:#B7950B}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--dark);color:var(--white);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;overflow-y:auto}
+  .topbar{background:var(--red);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .topbar .brand{font-size:1rem;font-weight:700;letter-spacing:.5px}
+  .topbar .meta{font-size:.85rem;opacity:.85}
+  #progress-bar{height:5px;background:rgba(255,255,255,.2)}
+  #progress-fill{height:100%;background:var(--white);transition:width .4s ease;width:0%}
+  .screen{display:none;flex:1;flex-direction:column;align-items:center;justify-content:flex-start;padding:1.5rem;gap:1.25rem;min-height:calc(100vh - 45px)}
+  .screen.active{display:flex}
+
+  /* CREATE ROOM */
+  .create-card{background:rgba(255,255,255,.07);border-radius:20px;padding:2.5rem;text-align:center;max-width:500px;width:100%}
+  .create-card .logo{font-size:3rem;margin-bottom:.5rem}
+  .create-card h1{font-size:2rem;font-weight:700;margin-bottom:.5rem}
+  .create-card .sub{font-size:1rem;opacity:.6;margin-bottom:2rem}
+  .btn-create{background:var(--red);color:#fff;border:none;border-radius:12px;padding:1rem 3rem;font-size:1.3rem;font-weight:700;cursor:pointer;transition:transform .1s}
+  .btn-create:hover{transform:scale(1.03)}
+
+  /* LOBBY */
+  .lobby-row{display:grid;grid-template-columns:1fr;gap:1.25rem;max-width:700px;width:100%}
+  .info-card{background:var(--red);border-radius:20px;padding:1.75rem 2.5rem;text-align:center}
+  .info-card .eyebrow{font-size:.8rem;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:.4rem}
+  .info-card h1{font-size:2rem;font-weight:700;margin-bottom:.75rem}
+  .room-code-box{background:rgba(0,0,0,.25);border-radius:14px;padding:1.25rem;margin:.5rem 0;text-align:center}
+  .room-code-label{font-size:.75rem;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:.4rem}
+  .room-code{font-size:3rem;font-weight:700;letter-spacing:8px;font-family:'Consolas','Courier New',monospace;user-select:all}
+  .room-url{font-size:.85rem;opacity:.6;margin-top:.5rem;font-family:'Consolas',monospace}
+  .info-card .hint{font-size:.85rem;opacity:.7;margin-top:.5rem}
+
+  .upload-area{border:2px dashed rgba(255,255,255,.2);border-radius:14px;padding:1.25rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;max-width:700px;width:100%}
+  .upload-area:hover,.upload-area.dragover{border-color:var(--red);background:rgba(193,39,44,.1)}
+  .upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .upload-icon{font-size:1.5rem;margin-bottom:.3rem}
+  .upload-text{font-size:.9rem;opacity:.7}
+  .upload-text b{color:var(--red);opacity:1}
+  .upload-hint{font-size:.75rem;opacity:.4;margin-top:.3rem}
+  .upload-status{margin-top:.5rem;font-size:.85rem;font-weight:600;min-height:1.2em}
+  .upload-status.ok{color:#7fffb4}
+  .upload-status.err{color:#ffaaaa}
+
+  .config-bar{display:flex;gap:.75rem;align-items:center;justify-content:center;max-width:700px;width:100%;flex-wrap:wrap}
+  .config-item{background:rgba(255,255,255,.07);border-radius:10px;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;font-size:.9rem}
+  .config-item label{opacity:.7;white-space:nowrap}
+  .config-item select,.config-item span.val{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:.3rem .6rem;color:var(--white);font-size:.95rem;font-weight:700;cursor:pointer;outline:none}
+  .config-item select option{background:var(--dark);color:var(--white)}
+
+  .counter-bar{background:rgba(255,255,255,.07);border-radius:14px;padding:.6rem 1.5rem;max-width:700px;width:100%;display:flex;align-items:center;justify-content:center;gap:.75rem;font-size:1.05rem}
+  .counter-bar .num{background:var(--red);border-radius:8px;padding:.15rem .65rem;font-weight:700;font-size:1.2rem;min-width:36px;text-align:center}
+  .players-area{max-width:700px;width:100%;flex:1;overflow-y:auto;padding:0 1rem}
+  .players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem}
+  .player-chip{background:rgba(255,255,255,.1);border-radius:10px;padding:.5rem .75rem;font-size:.95rem;font-weight:600;text-align:center;animation:popIn .3s ease;display:flex;align-items:center;justify-content:center;gap:.4rem}
+  .player-chip .avatar{width:26px;height:26px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0}
+  @keyframes popIn{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
+  .empty-msg{text-align:center;opacity:.4;font-size:1rem;margin-top:1.5rem}
+  .btn-big{background:var(--white);color:var(--red);border:none;border-radius:12px;padding:.8rem 2.5rem;font-size:1.15rem;font-weight:700;cursor:pointer;transition:transform .1s}
+  .btn-big:hover{transform:scale(1.03)}
+  .btn-big:disabled{opacity:.35;cursor:default;transform:none}
+
+  /* QUESTION */
+  #scrQuestion{justify-content:flex-start;padding-top:1rem;overflow-y:auto}
+  .q-header{width:100%;max-width:1100px;display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.06);border-radius:14px;padding:.75rem 1.25rem}
+  .q-counter{font-size:.9rem;opacity:.7;white-space:nowrap}
+  .q-score-wrap{margin-left:auto;background:var(--red);border-radius:8px;padding:.3rem .9rem;font-size:1rem;font-weight:700}
+  #timer-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:70px;height:70px;flex-shrink:0}
+  #timer-svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}
+  #timer-num{font-size:1.6rem;font-weight:700;z-index:1}
+  .q-card{width:100%;max-width:1100px;background:rgba(255,255,255,.09);border-radius:18px;padding:1.75rem 2rem;text-align:center}
+  .q-nr-tag{display:inline-block;background:var(--red);border-radius:6px;padding:.2rem .8rem;font-size:.8rem;font-weight:700;text-transform:uppercase;margin-bottom:.75rem}
+  .q-text{font-size:1.85rem;font-weight:600;line-height:1.35}
+  .opts-grid{width:100%;max-width:1100px;display:grid;grid-template-columns:1fr 1fr;gap:.9rem;flex:1}
+  .opt-btn{border:none;border-radius:14px;padding:1.1rem 1.4rem;font-size:1.35rem;font-weight:600;color:#fff;display:flex;align-items:center;gap:.85rem;text-align:left;line-height:1.3;min-height:90px}
+  .opt-icon{width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+  .opt-btn.correct-reveal{outline:4px solid #27e07a;filter:brightness(1.1)}
+  .opt-btn.wrong-reveal{opacity:.35}
+
+  /* SCOREBOARD */
+  .scoreboard{max-width:1000px;width:100%;text-align:center}
+  .scoreboard h2{font-size:2rem;font-weight:700;margin-bottom:1.5rem}
+  .rank-list{display:flex;flex-direction:column;gap:.5rem;text-align:left}
+  .rank-list.two-cols{display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem}
+  .rank-row{display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.08);border-radius:10px;padding:.6rem 1rem;font-size:1.05rem;font-weight:600;animation:popIn .3s ease}
+  .rank-row:first-child{background:rgba(255,215,0,.15);font-size:1.15rem}
+  .rank-row:nth-child(2){background:rgba(192,192,192,.1)}
+  .rank-row:nth-child(3){background:rgba(205,127,50,.1)}
+  .rank-pos{min-width:30px;text-align:center;font-size:1.1rem}
+  .rank-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rank-score{font-family:'Consolas',monospace;color:var(--red);font-size:1rem}
+  .btn-next{background:var(--red);color:#fff;border:none;border-radius:12px;padding:.9rem 2.5rem;font-size:1.15rem;font-weight:700;cursor:pointer;margin-top:1rem}
+  .btn-next:hover{transform:scale(1.03)}
+
+  .podium{display:flex;align-items:flex-end;justify-content:center;gap:1rem;margin:2rem 0}
+  .podium-spot{text-align:center;border-radius:12px 12px 0 0;padding:1rem;min-width:120px}
+  .podium-spot.gold{background:rgba(255,215,0,.2);min-height:160px}
+  .podium-spot.silver{background:rgba(192,192,192,.15);min-height:120px}
+  .podium-spot.bronze{background:rgba(205,127,50,.12);min-height:90px}
+  .podium-medal{font-size:2.5rem}
+  .podium-name{font-size:1.1rem;font-weight:700;margin-top:.5rem}
+  .podium-pts{font-size:.9rem;opacity:.6}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">🎮 QuizLive</span>
+  <span class="meta" id="topMeta">Criar sala</span>
+</div>
+<div id="progress-bar"><div id="progress-fill"></div></div>
+
+<!-- CREATE ROOM -->
+<div class="screen active" id="scrCreate">
+  <div class="create-card">
+    <div class="logo">🎮</div>
+    <h1>QuizLive</h1>
+    <p class="sub">Crie uma sala e seus alunos entram pelo código</p>
+    <button class="btn-create" onclick="criarSala()">Criar sala</button>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div class="screen" id="scrLobby">
+  <div class="lobby-row">
+    <div class="info-card">
+      <div class="eyebrow">Peça aos alunos para acessar</div>
+      <h1>QuizLive</h1>
+      <div class="room-code-box">
+        <div class="room-code-label">Código da sala</div>
+        <div class="room-code" id="roomCode">-----</div>
+        <div class="room-url" id="roomUrl"></div>
+      </div>
+      <p class="hint">Alunos acessam o mesmo site e digitam o código</p>
+    </div>
+  </div>
+
+  <div class="upload-area" id="uploadArea">
+    <input type="file" id="fileInput" accept=".txt">
+    <div class="upload-icon">📄</div>
+    <div class="upload-text">Arraste um <b>perguntas.txt</b> aqui ou clique para selecionar</div>
+    <div class="upload-hint">Formato: [Tag] + Pergunta + A) B) C) D) com * na correta, separadas por ---</div>
+    <div class="upload-status" id="uploadStatus"></div>
+  </div>
+
+  <div class="config-bar">
+    <div class="config-item"><label>⏱ Tempo:</label>
+      <select id="timeSelect">
+        <option value="15">15s</option><option value="20">20s</option><option value="25">25s</option>
+        <option value="30" selected>30s</option><option value="45">45s</option><option value="60">60s</option>
+      </select>
+    </div>
+    <div class="config-item"><label>📋 Perguntas:</label><span class="val" id="infoPerguntas">0</span></div>
+    <div class="config-item"><label>⚡ Pontos:</label><span class="val">Por velocidade</span></div>
+  </div>
+
+  <div class="counter-bar"><span>Jogadores conectados:</span><span class="num" id="playerCount">0</span></div>
+  <div class="players-area">
+    <div class="players-grid" id="playersGrid"></div>
+    <div class="empty-msg" id="emptyMsg">Aguardando jogadores...</div>
+  </div>
+  <button class="btn-big" id="btnStart" disabled onclick="startQuiz()">▶  Iniciar quiz</button>
+</div>
+
+<!-- QUESTION -->
+<div class="screen" id="scrQuestion">
+  <div class="q-header">
+    <div class="q-counter" id="qCounter"></div>
+    <div id="timer-wrap">
+      <svg id="timer-svg" width="70" height="70">
+        <circle cx="35" cy="35" r="28" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>
+        <circle id="timer-ring" cx="35" cy="35" r="28" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="175.9" stroke-dashoffset="0" stroke-linecap="round"/>
+      </svg>
+      <span id="timer-num">30</span>
+    </div>
+    <div class="q-score-wrap" id="qAnswered">0 / 0</div>
+  </div>
+  <div class="q-card"><div class="q-nr-tag" id="qTag"></div><div class="q-text" id="qText"></div></div>
+  <div class="opts-grid" id="optsGrid"></div>
+</div>
+
+<!-- SCOREBOARD -->
+<div class="screen" id="scrScore">
+  <div class="scoreboard"><h2>🏆 Placar</h2><div class="rank-list" id="rankList"></div></div>
+  <button class="btn-next" id="btnNext" onclick="nextQuestion()">Próxima →</button>
+</div>
+
+<!-- GAME OVER -->
+<div class="screen" id="scrEnd">
+  <div class="scoreboard"><h2>🏆 Resultado Final</h2><div class="podium" id="podium"></div><div class="rank-list" id="finalRank"></div></div>
+  <button class="btn-next" onclick="backToLobby()">↩ Nova partida</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var socket = io();
+var CIRC = 2 * Math.PI * 28;
+var COLORS = ['#1A5276','#884EA0','#1E8449','#B7950B'];
+var ICONS = ['▲','●','★','✦'];
+var totalPlayers = 0;
+var quizTime = 30;
+var roomCode = '';
+
+function show(id){
+  var all = ['scrCreate','scrLobby','scrQuestion','scrScore','scrEnd'];
+  for(var i=0;i<all.length;i++) document.getElementById(all[i]).classList.remove('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Criar sala ──
+function criarSala(){
+  fetch('/api/sala/criar',{method:'POST'})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.ok){
+        roomCode = d.code;
+        document.getElementById('roomCode').textContent = d.code;
+        document.getElementById('roomUrl').textContent = location.host;
+        document.getElementById('topMeta').textContent = 'Sala ' + d.code;
+        socket.emit('professor-join', d.code);
+        show('scrLobby');
+      }
+    });
+}
+
+// ── Professor joined ──
+socket.on('professor-joined', function(d){
+  document.getElementById('infoPerguntas').textContent = d.totalPerguntas;
+  quizTime = d.tempo;
+  document.getElementById('timeSelect').value = d.tempo;
+});
+
+// ── Upload ──
+var uploadArea = document.getElementById('uploadArea');
+var fileInput = document.getElementById('fileInput');
+var uploadStatus = document.getElementById('uploadStatus');
+uploadArea.addEventListener('dragover',function(e){e.preventDefault();uploadArea.classList.add('dragover');});
+uploadArea.addEventListener('dragleave',function(){uploadArea.classList.remove('dragover');});
+uploadArea.addEventListener('drop',function(e){e.preventDefault();uploadArea.classList.remove('dragover');if(e.dataTransfer.files.length>0)uploadFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',function(){if(fileInput.files.length>0)uploadFile(fileInput.files[0]);});
+
+function uploadFile(file){
+  if(!file.name.endsWith('.txt')){uploadStatus.className='upload-status err';uploadStatus.textContent='❌ Selecione um arquivo .txt';return;}
+  uploadStatus.className='upload-status';uploadStatus.textContent='⏳ Enviando...';
+  var reader = new FileReader();
+  reader.onload = function(e){
+    fetch('/api/upload',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8','X-Room-Code':roomCode},body:e.target.result})
+    .then(function(r){if(!r.ok)throw new Error('Erro '+r.status);return r.json()})
+    .then(function(d){
+      if(d.ok){uploadStatus.className='upload-status ok';uploadStatus.textContent='✅ '+d.total+' perguntas!';document.getElementById('infoPerguntas').textContent=d.total;document.getElementById('btnStart').disabled=false;}
+      else{uploadStatus.className='upload-status err';uploadStatus.textContent='❌ '+(d.error||'Erro');}
+    }).catch(function(err){uploadStatus.className='upload-status err';uploadStatus.textContent='❌ '+err.message;});
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+// ── Tempo ──
+document.getElementById('timeSelect').addEventListener('change',function(){quizTime=parseInt(this.value);socket.emit('set-time',quizTime);});
+
+// ── Players ──
+socket.on('player-list',function(players){
+  totalPlayers=players.length;
+  document.getElementById('playerCount').textContent=players.length;
+  var grid=document.getElementById('playersGrid');grid.innerHTML='';
+  var empty=document.getElementById('emptyMsg');
+  if(players.length===0){empty.style.display='block';}
+  else{
+    empty.style.display='none';
+    if(parseInt(document.getElementById('infoPerguntas').textContent)>0)document.getElementById('btnStart').disabled=false;
+    for(var i=0;i<players.length;i++){
+      var chip=document.createElement('div');chip.className='player-chip';
+      chip.innerHTML='<span class="avatar">'+players[i].name.substring(0,2).toUpperCase()+'</span><span>'+players[i].name+'</span>';
+      grid.appendChild(chip);
+    }
+  }
+});
+
+// ── Question ──
+socket.on('show-question',function(d){
+  document.getElementById('topMeta').textContent='Sala '+roomCode+' | Pergunta '+(d.index+1)+'/'+d.total;
+  document.getElementById('progress-fill').style.width=(d.index/d.total*100)+'%';
+  document.getElementById('qCounter').textContent='Pergunta '+(d.index+1)+' de '+d.total;
+  document.getElementById('qTag').textContent=d.tag;
+  document.getElementById('qText').textContent=d.text;
+  document.getElementById('qAnswered').textContent='0 / '+totalPlayers+' responderam';
+  var grid=document.getElementById('optsGrid');grid.innerHTML='';
+  for(var i=0;i<d.opts.length;i++){
+    var btn=document.createElement('div');btn.className='opt-btn';btn.style.backgroundColor=COLORS[i];
+    btn.innerHTML='<span class="opt-icon">'+ICONS[i]+'</span><span>'+d.opts[i]+'</span>';
+    grid.appendChild(btn);
+  }
+  quizTime=d.time;updateTimerDisplay(d.time);show('scrQuestion');
+});
+
+socket.on('timer-tick',function(t){updateTimerDisplay(t);});
+
+function updateTimerDisplay(t){
+  var pct=t/quizTime;document.getElementById('timer-ring').style.strokeDashoffset=CIRC*(1-pct);
+  document.getElementById('timer-num').textContent=t;
+  var c=t<=5?'#e74c3c':t<=10?'#f39c12':'#fff';
+  document.getElementById('timer-ring').style.stroke=c;document.getElementById('timer-num').style.color=c;
+}
+
+socket.on('answer-count',function(d){document.getElementById('qAnswered').textContent=d.answered+' / '+d.total+' responderam';});
+
+socket.on('reveal-answer',function(d){
+  var opts=document.querySelectorAll('.opt-btn');
+  for(var i=0;i<opts.length;i++) opts[i].classList.add(i===d.correctIndex?'correct-reveal':'wrong-reveal');
+});
+
+socket.on('show-scoreboard',function(d){
+  var list=document.getElementById('rankList');list.innerHTML='';
+  list.className=d.ranking.length>10?'rank-list two-cols':'rank-list';
+  var medals=['🥇','🥈','🥉'];
+  for(var i=0;i<d.ranking.length;i++){
+    var row=document.createElement('div');row.className='rank-row';
+    row.innerHTML='<span class="rank-pos">'+(i<3?medals[i]:(i+1))+'</span><span class="rank-name">'+d.ranking[i].name+'</span><span class="rank-score">'+d.ranking[i].score+' pts</span>';
+    list.appendChild(row);
+  }
+  document.getElementById('btnNext').textContent=d.questionNum>=d.totalQuestions?'Ver resultado final':'Próxima →';
+  show('scrScore');
+});
+
+socket.on('game-over',function(d){
+  document.getElementById('progress-fill').style.width='100%';
+  document.getElementById('topMeta').textContent='Sala '+roomCode+' | Resultado';
+  var podium=document.getElementById('podium');podium.innerHTML='';
+  var medals=['🥇','🥈','🥉'],classes=['gold','silver','bronze'];
+  [1,0,2].forEach(function(pos){
+    if(d.ranking[pos]){var s=document.createElement('div');s.className='podium-spot '+classes[pos];
+    s.innerHTML='<div class="podium-medal">'+medals[pos]+'</div><div class="podium-name">'+d.ranking[pos].name+'</div><div class="podium-pts">'+d.ranking[pos].score+' pts</div>';
+    podium.appendChild(s);}
+  });
+  var list=document.getElementById('finalRank');list.innerHTML='';
+  for(var i=3;i<d.ranking.length;i++){
+    var row=document.createElement('div');row.className='rank-row';
+    row.innerHTML='<span class="rank-pos">'+(i+1)+'</span><span class="rank-name">'+d.ranking[i].name+'</span><span class="rank-score">'+d.ranking[i].score+' pts</span>';
+    list.appendChild(row);
+  }
+  show('scrEnd');
+});
+
+function startQuiz(){socket.emit('start-quiz');}
+function nextQuestion(){socket.emit('next-question');}
+function backToLobby(){show('scrLobby');document.getElementById('progress-fill').style.width='0%';document.getElementById('topMeta').textContent='Sala '+roomCode;socket.emit('get-players');}
+</script>
+</body>
+</html>

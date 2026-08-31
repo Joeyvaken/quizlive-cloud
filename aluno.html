@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>QuizLive</title>
+<style>
+  :root{--red:#C1272C;--dark:#1B2430;--white:#FFFFFF}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--dark);color:var(--white);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+  .screen{display:none;width:100%;max-width:420px;text-align:center}
+  .screen.active{display:block}
+  .card{background:rgba(255,255,255,.07);border-radius:20px;padding:2rem 1.5rem}
+  .card .logo{font-size:2.5rem;margin-bottom:.5rem}
+  .card h1{font-size:1.5rem;font-weight:700;margin-bottom:.25rem}
+  .card .sub{font-size:.9rem;opacity:.6;margin-bottom:1.5rem}
+  .card input{width:100%;padding:.9rem 1rem;border-radius:12px;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:1.1rem;font-weight:500;outline:none;margin-bottom:1rem}
+  .card input.code-input{font-size:1.8rem;font-weight:700;text-align:center;letter-spacing:6px;text-transform:uppercase;font-family:'Consolas',monospace}
+  .card input::placeholder{color:rgba(255,255,255,.35);letter-spacing:normal;font-size:1rem}
+  .card input:focus{border-color:var(--red)}
+  .btn{width:100%;padding:.9rem;border-radius:12px;border:none;background:var(--red);color:var(--white);font-size:1.15rem;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.4;cursor:default}
+  .err{margin-top:.5rem;font-size:.85rem;color:#ff6b6b;min-height:1.2em}
+  .pn{display:inline-block;background:var(--red);border-radius:8px;padding:.3rem 1rem;font-size:1rem;font-weight:600;margin-bottom:1rem}
+  .wm{font-size:.95rem;opacity:.6}
+  .dt::after{content:'';animation:dt 1.5s steps(4,end) infinite}
+  @keyframes dt{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  #scrQ{max-width:500px}
+  .qt{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+  .qt .tg{background:var(--red);border-radius:6px;padding:.2rem .7rem;font-size:.75rem;font-weight:700;text-transform:uppercase}
+  .qt .tm{font-size:1.3rem;font-weight:700}
+  .qx{font-size:1.15rem;font-weight:600;line-height:1.4;margin-bottom:1.25rem;text-align:left}
+  .qo{display:flex;flex-direction:column;gap:.6rem}
+  .qb{border:none;border-radius:12px;padding:.9rem 1rem;font-size:1.05rem;font-weight:600;color:#fff;cursor:pointer;display:flex;align-items:center;gap:.7rem;text-align:left;line-height:1.3}
+  .qb .ic{width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+  .fb{margin-top:1rem;border-radius:12px;padding:.9rem;font-size:1.05rem;font-weight:600;text-align:center;display:none}
+  .fb.sh{display:block}.fb.ok{background:#1a6634;color:#7fffb4}.fb.no{background:#7a1a1a;color:#ffaaaa}
+  .ps{font-size:3rem;font-weight:700;color:var(--red)}
+  .pt{font-size:1.5rem;font-weight:700;margin:.5rem 0}
+  .rb{position:fixed;top:0;left:0;right:0;background:#f39c12;color:#1B2430;text-align:center;padding:.5rem;font-size:.9rem;font-weight:700;z-index:99;display:none}
+  .rb.sh{display:block}
+  .step-label{font-size:.75rem;opacity:.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem}
+</style>
+</head>
+<body>
+<div class="rb" id="rb">Reconectando...</div>
+
+<!-- STEP 1: CÓDIGO DA SALA -->
+<div class="screen active" id="scrCode">
+  <div class="card">
+    <div class="logo">🎮</div>
+    <h1>QuizLive</h1>
+    <p class="sub">Digite o código da sala</p>
+    <input class="code-input" id="codeInput" placeholder="CÓDIGO" maxlength="5" autocomplete="off" autofocus>
+    <button class="btn" id="btnCode" disabled>Entrar</button>
+    <div class="err" id="codeErr"></div>
+  </div>
+</div>
+
+<!-- STEP 2: NOME -->
+<div class="screen" id="scrName">
+  <div class="card">
+    <div class="step-label" id="roomLabel">Sala XXXXX</div>
+    <div class="logo">👤</div>
+    <h1>Seu nome</h1>
+    <p class="sub">Como você quer aparecer no placar?</p>
+    <input id="nameInput" placeholder="Seu nome ou apelido" maxlength="20" autocomplete="off">
+    <button class="btn" id="btnName" disabled>Entrar na sala</button>
+    <div class="err" id="nameErr"></div>
+  </div>
+</div>
+
+<!-- WAIT -->
+<div class="screen" id="scrWait">
+  <div class="card">
+    <div style="font-size:3rem;margin-bottom:.75rem">✅</div>
+    <h2 style="font-size:1.3rem;font-weight:700;margin-bottom:.5rem">Você está na sala!</h2>
+    <div class="pn" id="dispName"></div>
+    <p class="wm">Aguardando o professor iniciar<span class="dt"></span></p>
+  </div>
+</div>
+
+<!-- QUESTION -->
+<div class="screen" id="scrQ">
+  <div class="qt"><span class="tg" id="aTag"></span><span class="tm" id="aTimer">30</span></div>
+  <div class="qx" id="aText"></div>
+  <div class="qo" id="aOpts"></div>
+  <div class="fb" id="aFb"></div>
+</div>
+
+<!-- SCORE -->
+<div class="screen" id="scrScore">
+  <div class="card">
+    <div class="ps" id="aPos"></div>
+    <div class="pt" id="aPts"></div>
+    <p class="wm">Aguardando próxima pergunta<span class="dt"></span></p>
+  </div>
+</div>
+
+<!-- END -->
+<div class="screen" id="scrEnd">
+  <div class="card">
+    <div style="font-size:3.5rem;margin-bottom:.5rem">🏆</div>
+    <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:.25rem">Quiz finalizado!</h2>
+    <div class="ps" id="aFPos" style="font-size:2.5rem;margin:.5rem 0"></div>
+    <div class="pt" id="aFPts" style="font-size:1.3rem"></div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var COLORS=['#1A5276','#884EA0','#1E8449','#B7950B'];
+var ICONS=['▲','●','★','✦'];
+var myName='',myCode='',answered=false,inGame=false;
+
+function sC(n,v){document.cookie=n+'='+encodeURIComponent(v)+';path=/;max-age=2592000;SameSite=Lax';}
+function gC(n){var c=document.cookie.split(';');for(var i=0;i<c.length;i++){var t=c[i].trim();if(t.indexOf(n+'=')===0)return decodeURIComponent(t.substring(n.length+1));}return '';}
+function dC(n){document.cookie=n+'=;path=/;max-age=0';}
+function gPI(){var id=gC('ql_id');if(!id){id='p'+Math.random().toString(36).substr(2,8)+Date.now().toString(36);sC('ql_id',id);}return id;}
+var pid=gPI();
+
+var socket=io({reconnection:true,reconnectionAttempts:Infinity,reconnectionDelay:1000,reconnectionDelayMax:5000});
+
+function sh(id){var a=['scrCode','scrName','scrWait','scrQ','scrScore','scrEnd'];for(var i=0;i<a.length;i++)document.getElementById(a[i]).classList.remove('active');document.getElementById(id).classList.add('active');}
+
+window.addEventListener('beforeunload',function(e){if(inGame){e.preventDefault();e.returnValue='Sair?';return e.returnValue;}});
+
+// ── STEP 1: Código ──
+var codeInput=document.getElementById('codeInput');
+var btnCode=document.getElementById('btnCode');
+codeInput.addEventListener('input',function(){codeInput.value=codeInput.value.toUpperCase();btnCode.disabled=codeInput.value.trim().length<5;document.getElementById('codeErr').textContent='';});
+codeInput.addEventListener('keydown',function(e){if(e.key==='Enter'&&!btnCode.disabled)enterCode();});
+btnCode.addEventListener('click',function(){enterCode();});
+
+function enterCode(){
+  myCode=codeInput.value.trim().toUpperCase();
+  if(myCode.length<5)return;
+  btnCode.disabled=true;btnCode.textContent='Verificando...';
+  fetch('/api/sala/'+myCode).then(function(r){return r.json()}).then(function(d){
+    if(d.ok){
+      document.getElementById('roomLabel').textContent='Sala '+myCode;
+      sC('ql_code',myCode);
+      sh('scrName');
+      document.getElementById('nameInput').focus();
+    } else {
+      document.getElementById('codeErr').textContent='❌ Sala não encontrada';
+      btnCode.disabled=false;btnCode.textContent='Entrar';
+    }
+  }).catch(function(){
+    document.getElementById('codeErr').textContent='❌ Erro de conexão';
+    btnCode.disabled=false;btnCode.textContent='Entrar';
+  });
+}
+
+// ── STEP 2: Nome ──
+var nameInput=document.getElementById('nameInput');
+var btnName=document.getElementById('btnName');
+var saved=gC('ql_name');if(saved){nameInput.value=saved;btnName.disabled=false;}
+nameInput.addEventListener('input',function(){btnName.disabled=nameInput.value.trim().length<2;document.getElementById('nameErr').textContent='';});
+nameInput.addEventListener('keydown',function(e){if(e.key==='Enter'&&!btnName.disabled)joinRoom();});
+btnName.addEventListener('click',function(){joinRoom();});
+
+function joinRoom(){
+  myName=nameInput.value.trim();
+  if(myName.length<2)return;
+  btnName.disabled=true;btnName.textContent='Entrando...';
+  sC('ql_name',myName);
+  socket.emit('join',{name:myName,playerId:pid,code:myCode});
+}
+
+// ── Socket events ──
+socket.on('joined',function(d){myName=d.name;inGame=true;document.getElementById('dispName').textContent=myName;sh('scrWait');});
+
+socket.on('reconnected',function(d){
+  myName=d.name;inGame=true;document.getElementById('dispName').textContent=myName;
+  document.getElementById('rb').classList.remove('sh');
+  if(d.state==='scoreboard')sh('scrScore');
+  else if(d.state==='finished')sh('scrEnd');
+  else sh('scrWait');
+});
+
+socket.on('error-msg',function(msg){
+  document.getElementById('codeErr').textContent='❌ '+msg;
+  btnCode.disabled=false;btnCode.textContent='Entrar';
+  document.getElementById('nameErr').textContent='❌ '+msg;
+  btnName.disabled=false;btnName.textContent='Entrar na sala';
+});
+
+socket.on('connect',function(){
+  document.getElementById('rb').classList.remove('sh');
+  var sId=gC('ql_id'),sNm=gC('ql_name'),sCd=gC('ql_code');
+  if(sId&&sNm&&sCd)socket.emit('rejoin',{name:sNm,playerId:sId,code:sCd});
+});
+
+socket.on('disconnect',function(){if(inGame)document.getElementById('rb').classList.add('sh');});
+
+socket.on('rejoin-failed',function(){inGame=false;dC('ql_name');dC('ql_code');document.getElementById('rb').classList.remove('sh');sh('scrCode');btnCode.disabled=false;btnCode.textContent='Entrar';});
+
+// ── Question ──
+socket.on('show-question',function(d){
+  answered=false;inGame=true;
+  document.getElementById('aTag').style.cssText='';document.getElementById('aTag').textContent=d.tag;
+  document.getElementById('aText').style.cssText='';document.getElementById('aText').textContent=d.text;
+  document.getElementById('aTimer').style.cssText='';document.getElementById('aTimer').textContent=d.time;document.getElementById('aTimer').style.color='#fff';
+  document.getElementById('aOpts').style.cssText='';
+  var fb=document.getElementById('aFb');fb.className='fb';fb.textContent='';fb.style.cssText='';
+  var opts=document.getElementById('aOpts');opts.innerHTML='';
+  for(var i=0;i<d.opts.length;i++){(function(idx){
+    var btn=document.createElement('button');btn.className='qb';btn.style.backgroundColor=COLORS[idx];
+    btn.innerHTML='<span class="ic">'+ICONS[idx]+'</span><span>'+d.opts[idx]+'</span>';
+    btn.onclick=function(){sA(idx)};opts.appendChild(btn);
+  })(i);}
+  sh('scrQ');
+});
+
+socket.on('timer-tick',function(t){var el=document.getElementById('aTimer');el.textContent=t;el.style.color=t<=5?'#e74c3c':t<=10?'#f39c12':'#fff';});
+
+function hQ(){document.getElementById('aOpts').style.cssText='display:none!important';document.getElementById('aText').style.cssText='display:none!important';document.getElementById('aTag').style.cssText='display:none!important';document.getElementById('aTimer').style.cssText='display:none!important';}
+
+function sA(idx){if(answered)return;answered=true;hQ();var fb=document.getElementById('aFb');fb.className='fb sh';fb.style.background='rgba(255,255,255,.07)';fb.style.color='#fff';fb.textContent='Resposta enviada...';requestAnimationFrame(function(){requestAnimationFrame(function(){socket.emit('answer',idx);});});}
+
+socket.on('answer-result',function(d){hQ();var fb=document.getElementById('aFb');if(d.correct){fb.className='fb sh ok';fb.style.cssText='';fb.textContent='✔ Correto! +'+d.points+' pontos';}else{fb.className='fb sh no';fb.style.cssText='';fb.textContent='✘ Incorreto — resposta no telão';}});
+
+socket.on('reveal-answer',function(d){if(!answered){hQ();var fb=document.getElementById('aFb');fb.className='fb sh no';fb.textContent='⏰ Tempo esgotado — resposta no telão';}});
+
+socket.on('show-scoreboard',function(d){var r=0,s=0;for(var i=0;i<d.ranking.length;i++){if(d.ranking[i].name===myName){r=i+1;s=d.ranking[i].score;}}document.getElementById('aPos').textContent=r+'º lugar';document.getElementById('aPts').textContent=s+' pontos';sh('scrScore');});
+
+socket.on('game-over',function(d){var r=0,s=0;for(var i=0;i<d.ranking.length;i++){if(d.ranking[i].name===myName){r=i+1;s=d.ranking[i].score;}}document.getElementById('aFPos').textContent=r+'º lugar';document.getElementById('aFPts').textContent=s+' pontos';inGame=false;sh('scrEnd');});
+</script>
+</body>
+</html>
