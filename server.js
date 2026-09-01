@@ -113,6 +113,15 @@ app.post('/api/upload', function(req, res) {
   res.json({ ok: true, total: novas.length });
 });
 
+// QR Code
+var QRCode = require('qrcode');
+app.get('/api/qr', function(req, res) {
+  var url = req.query.url || ('https://' + req.headers.host);
+  QRCode.toBuffer(url, { width: 300, margin: 2, color: { dark: '#1B2430', light: '#FFFFFF' } })
+    .then(function(buf) { res.set('Content-Type', 'image/png'); res.send(buf); })
+    .catch(function() { res.status(500).send('Erro QR'); });
+});
+
 // Info da sala
 app.get('/api/sala/:code', function(req, res) {
   var room = rooms[req.params.code.toUpperCase()];
